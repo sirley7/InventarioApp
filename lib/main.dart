@@ -77,8 +77,8 @@ class _LoginScreenState extends State<LoginScreen> {
       filled: true,
       fillColor: const Color(0xFFFAF9FC),
       contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 18,
+        horizontal: 14,
+        vertical: 16,
       ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -145,239 +145,279 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: fondo,
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 22,
-              vertical: 24,
-            ),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: 440,
-              ),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.fromLTRB(
-                  24,
-                  30,
-                  24,
-                  22,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final ancho = constraints.maxWidth;
+            final alto = constraints.maxHeight;
+
+            final pantallaPequena = alto < 650;
+            final pantallaAncha = ancho >= 600;
+
+            final margenHorizontal = pantallaAncha
+                ? 32.0
+                : ancho < 360
+                    ? 12.0
+                    : 20.0;
+
+        
+            final tamanoLogo = pantallaPequena ? 68.0 : 82.0;
+            final tamanoIcono = pantallaPequena ? 38.0 : 44.0;
+            final espacioTarjeta = pantallaPequena ? 18.0 : 26.0;
+
+            return Center(
+              child: SingleChildScrollView(
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.symmetric(
+                  horizontal: margenHorizontal,
+                  vertical: pantallaPequena ? 12 : 24,
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(26),
-                  border: Border.all(
-                    color: const Color(0xFFECE6F2),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 440,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: moradoOscuro.withValues(alpha: 0.07),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: ancho < 360 ? 16 : 22,
+                      vertical: pantallaPequena ? 20 : 28,
                     ),
-                  ],
-                ),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // LOGO
-                      Container(
-                        width: 88,
-                        height: 88,
-                        decoration: BoxDecoration(
-                          color: moradoOscuro,
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: moradoOscuro.withValues(alpha: 0.20),
-                              blurRadius: 15,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.inventory_2_outlined,
-                          color: Colors.white,
-                          size: 48,
-                        ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(
+                        color: const Color(0xFFECE6F2),
                       ),
-
-                      const SizedBox(height: 22),
-
-                      // NOMBRE DE LA APLICACIÓN
-                      const Text(
-                        'INVENTARIOAPP',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 27,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
-                          color: Color(0xFF30263B),
+                      boxShadow: [
+                        BoxShadow(
+                          color: moradoOscuro.withValues(alpha: 0.07),
+                          blurRadius: 24,
+                          offset: const Offset(0, 8),
                         ),
-                      ),
-
-                      const SizedBox(height: 10),
-
-                      // DESCRIPCIÓN
-                      const Text(
-                        'Gestiona tus productos de forma\n'
-                        'simple y ordenada',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 1.6,
-                          color: Colors.blueGrey,
-                        ),
-                      ),
-
-                      // ESPACIO ANTES DEL FORMULARIO
-                      const SizedBox(height: 22),
-
-                      // CORREO ELECTRÓNICO
-                      TextFormField(
-                        controller: correoController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autocorrect: false,
-                        decoration: decoracionCampo(
-                          etiqueta: 'Correo electrónico',
-                          ayuda: 'Ingresa tu correo',
-                          icono: Icons.email_outlined,
-                        ),
-                        validator: validarCorreo,
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // CONTRASEÑA
-                      TextFormField(
-                        controller: contrasenaController,
-                        obscureText: !mostrarContrasena,
-                        textInputAction: TextInputAction.done,
-                        onFieldSubmitted: (_) => iniciarSesion(),
-                        decoration: decoracionCampo(
-                          etiqueta: 'Contraseña',
-                          ayuda: 'Ingresa tu contraseña',
-                          icono: Icons.lock_outline,
-                          sufijo: IconButton(
-                            tooltip: mostrarContrasena
-                                ? 'Ocultar contraseña'
-                                : 'Mostrar contraseña',
-                            icon: Icon(
-                              mostrarContrasena
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: Colors.blueGrey,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                mostrarContrasena =
-                                    !mostrarContrasena;
-                              });
-                            },
-                          ),
-                        ),
-                        validator: validarContrasena,
-                      ),
-
-                      const SizedBox(height: 26),
-
-                      // BOTÓN INICIAR SESIÓN
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton.icon(
-                          onPressed: iniciarSesion,
-                          icon: const Icon(
-                            Icons.login_rounded,
-                          ),
-                          label: const Text(
-                            'INICIAR SESIÓN',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: moradoOscuro,
-                            foregroundColor: Colors.white,
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      // REGISTRO
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            '¿No tienes una cuenta?',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.blueGrey,
+                          // LOGO
+                          Container(
+                            width: tamanoLogo,
+                            height: tamanoLogo,
+                            decoration: BoxDecoration(
+                              color: moradoOscuro,
+                              borderRadius: BorderRadius.circular(22),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: moradoOscuro.withValues(
+                                    alpha: 0.20,
+                                  ),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 6),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.inventory_2_outlined,
+                              color: Colors.white,
+                              size: tamanoIcono,
                             ),
                           ),
-                          TextButton(
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Pantalla de registro pendiente.',
-                                  ),
-                                ),
-                              );
-                            },
-                            style: TextButton.styleFrom(
-                              foregroundColor: moradoOscuro,
-                            ),
+
+                          SizedBox(height: pantallaPequena ? 16 : 20),
+
+                          // NOMBRE DE LA APLICACIÓN
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
                             child: const Text(
-                              'REGÍSTRATE',
+                              'INVENTARIOAPP',
+                              textAlign: TextAlign.center,
                               style: TextStyle(
+                                fontSize: 27,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 13,
+                                letterSpacing: 1.1,
+                                color: Color(0xFF30263B),
                               ),
                             ),
                           ),
-                        ],
-                      ),
 
-                      const SizedBox(height: 8),
+                          const SizedBox(height: 10),
 
-                      // PIE DE PANTALLA
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.inventory_outlined,
-                            size: 15,
-                            color: moradoOscuro,
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            'Organiza tu inventario fácilmente',
+                          // DESCRIPCIÓN
+                          const Text(
+                            'Gestiona tus productos de forma\n'
+                            'simple y ordenada',
+                            textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 14,
+                              height: 1.5,
                               color: Colors.blueGrey,
                             ),
                           ),
+
+                          SizedBox(height: espacioTarjeta),
+
+                          // CORREO ELECTRÓNICO
+                          TextFormField(
+                            controller: correoController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            autocorrect: false,
+                            autofillHints: const [
+                              AutofillHints.email,
+                            ],
+                            decoration: decoracionCampo(
+                              etiqueta: 'Correo electrónico',
+                              ayuda: 'Ingresa tu correo',
+                              icono: Icons.email_outlined,
+                            ),
+                            validator: validarCorreo,
+                          ),
+
+                          SizedBox(
+                            height: pantallaPequena ? 14 : 18,
+                          ),
+
+                          // CONTRASEÑA
+                          TextFormField(
+                            controller: contrasenaController,
+                            obscureText: !mostrarContrasena,
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [
+                              AutofillHints.password,
+                            ],
+                            onFieldSubmitted: (_) => iniciarSesion(),
+                            decoration: decoracionCampo(
+                              etiqueta: 'Contraseña',
+                              ayuda: 'Ingresa tu contraseña',
+                              icono: Icons.lock_outline,
+                              sufijo: IconButton(
+                                tooltip: mostrarContrasena
+                                    ? 'Ocultar contraseña'
+                                    : 'Mostrar contraseña',
+                                icon: Icon(
+                                  mostrarContrasena
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  color: Colors.blueGrey,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    mostrarContrasena =
+                                        !mostrarContrasena;
+                                  });
+                                },
+                              ),
+                            ),
+                            validator: validarContrasena,
+                          ),
+
+                          SizedBox(
+                            height: pantallaPequena ? 20 : 26,
+                          ),
+
+                          // BOTÓN INICIAR SESIÓN
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: ElevatedButton.icon(
+                              onPressed: iniciarSesion,
+                              icon: const Icon(Icons.login_rounded),
+                              label: const Text(
+                                'INICIAR SESIÓN',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: moradoOscuro,
+                                foregroundColor: Colors.white,
+                                elevation: 2,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          SizedBox(
+                            height: pantallaPequena ? 12 : 18,
+                          ),
+
+                          // REGISTRO
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            children: [
+                              const Text(
+                                '¿No tienes una cuenta?',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.blueGrey,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context)
+                                      .showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        'Pantalla de registro pendiente.',
+                                      ),
+                                    ),
+                                  );
+                                },
+                                style: TextButton.styleFrom(
+                                  foregroundColor: moradoOscuro,
+                                ),
+                                child: const Text(
+                                  'REGÍSTRATE',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 4),
+
+                          // PIE DE PANTALLA
+                          const Wrap(
+                            alignment: WrapAlignment.center,
+                            crossAxisAlignment:
+                                WrapCrossAlignment.center,
+                            spacing: 6,
+                            children: [
+                              Icon(
+                                Icons.inventory_outlined,
+                                size: 15,
+                                color: moradoOscuro,
+                              ),
+                              Text(
+                                'Organiza tu inventario fácilmente',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.blueGrey,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ),
+            );
+          },
         ),
       ),
     );

@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -202,6 +203,46 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
+  // CAMPO DE CANTIDAD
+  Widget construirCampoCantidad() {
+    return TextFormField(
+      controller: cantidadController,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
+      validator: (valor) => validarEntero(
+        valor,
+        'la cantidad inicial',
+      ),
+      decoration: decoracionCampo(
+        etiqueta: 'Cantidad inicial',
+        icono: Icons.numbers_rounded,
+        ayuda: 'Número de unidades disponibles',
+      ),
+    );
+  }
+
+  // CAMPO DE STOCK MÍNIMO
+  Widget construirCampoStockMinimo() {
+    return TextFormField(
+      controller: stockMinimoController,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+      ],
+      validator: (valor) => validarEntero(
+        valor,
+        'el stock mínimo',
+      ),
+      decoration: decoracionCampo(
+        etiqueta: 'Stock mínimo',
+        icono: Icons.warning_amber_rounded,
+        ayuda: 'Nivel para identificar stock bajo',
+      ),
+    );
+  }
+
   // GUARDAR PRODUCTO CON VALIDACIÓN DE CÓDIGO DUPLICADO
   Future<void> guardarProducto() async {
     FocusScope.of(context).unfocus();
@@ -219,8 +260,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
-    // Normalizar el código para comparar sin distinguir
-    // mayúsculas, minúsculas ni espacios en los extremos.
     final codigoIngresado =
         codigoController.text.trim().toUpperCase();
 
@@ -284,7 +323,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     if (!mounted) return;
 
-    // Crear el producto si el código no está repetido.
     final producto = <String, dynamic>{
       'nombre': nombreController.text.trim(),
       'codigo': codigoController.text.trim(),
@@ -328,329 +366,353 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
       ),
 
-      // FORMULARIO
+      // CUERPO RESPONSIVE
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(18, 20, 18, 30),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ENCABEZADO
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(21),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFFF1E8FF),
-                        Color(0xFFE8DCFA),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: const Color(0xFFE5D8F5),
-                    ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final anchoPantalla = constraints.maxWidth;
+            final esPantallaAncha = anchoPantalla >= 700;
+            final esPantallaPequena = anchoPantalla < 400;
+
+            return SingleChildScrollView(
+              keyboardDismissBehavior:
+                  ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(
+                esPantallaAncha ? 32 : 18,
+                esPantallaPequena ? 14 : 20,
+                esPantallaAncha ? 32 : 18,
+                30,
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 850,
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 58,
-                        height: 58,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.8),
-                          borderRadius: BorderRadius.circular(17),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ENCABEZADO
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(
+                            esPantallaPequena ? 15 : 21,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFF1E8FF),
+                                Color(0xFFE8DCFA),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: const Color(0xFFE5D8F5),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: esPantallaPequena ? 48 : 58,
+                                height: esPantallaPequena ? 48 : 58,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(
+                                    alpha: 0.8,
+                                  ),
+                                  borderRadius: BorderRadius.circular(17),
+                                ),
+                                child: Icon(
+                                  Icons.add_box_rounded,
+                                  color: InventoryScreen.moradoOscuro,
+                                  size: esPantallaPequena ? 27 : 32,
+                                ),
+                              ),
+                              SizedBox(
+                                width: esPantallaPequena ? 10 : 15,
+                              ),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Registra un producto',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color:
+                                            InventoryScreen.moradoOscuro,
+                                      ),
+                                    ),
+                                    SizedBox(height: 6),
+                                    Text(
+                                      'Completa los datos para agregarlo '
+                                      'a tu inventario.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Color(0xFF655574),
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.add_box_rounded,
-                          color: InventoryScreen.moradoOscuro,
-                          size: 32,
+
+                        const SizedBox(height: 26),
+
+                        // TARJETA DE INFORMACIÓN GENERAL
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(
+                            esPantallaPequena ? 14 : 18,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: const Color(0xFFECE7F2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              construirTituloSeccion(
+                                titulo: 'Información general',
+                                descripcion:
+                                    'Identifica el producto y selecciona '
+                                    'su categoría.',
+                                icono: Icons.inventory_2_outlined,
+                              ),
+
+                              const SizedBox(height: 23),
+
+                              // NOMBRE
+                              TextFormField(
+                                controller: nombreController,
+                                textCapitalization:
+                                    TextCapitalization.words,
+                                textInputAction: TextInputAction.next,
+                                validator: (valor) => validarTexto(
+                                  valor,
+                                  'el nombre del producto',
+                                ),
+                                decoration: decoracionCampo(
+                                  etiqueta: 'Nombre del producto',
+                                  icono: Icons.inventory_2_outlined,
+                                ),
+                              ),
+
+                              const SizedBox(height: 19),
+
+                              // CÓDIGO
+                              TextFormField(
+                                controller: codigoController,
+                                textCapitalization:
+                                    TextCapitalization.characters,
+                                textInputAction: TextInputAction.next,
+                                validator: (valor) =>
+                                    validarTexto(valor, 'el código'),
+                                decoration: decoracionCampo(
+                                  etiqueta: 'Código del producto',
+                                  icono: Icons.qr_code_rounded,
+                                  ayuda: 'Ejemplo: ARZ001',
+                                ),
+                              ),
+
+                              const SizedBox(height: 19),
+
+                              // CATEGORÍA
+                              DropdownButtonFormField<String>(
+                                initialValue: categoriaSeleccionada,
+                                isExpanded: true,
+                                validator: (valor) {
+                                  if (valor == null) {
+                                    return 'Selecciona una categoría.';
+                                  }
+                                  return null;
+                                },
+                                decoration: decoracionCampo(
+                                  etiqueta: 'Categoría',
+                                  icono: Icons.category_outlined,
+                                ),
+                                items: categorias.map((categoria) {
+                                  return DropdownMenuItem<String>(
+                                    value: categoria,
+                                    child: Text(categoria),
+                                  );
+                                }).toList(),
+                                onChanged: (valor) {
+                                  setState(() {
+                                    categoriaSeleccionada = valor;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 15),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Registra un producto',
+
+                        const SizedBox(height: 18),
+
+                        // TARJETA DE EXISTENCIAS
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(
+                            esPantallaPequena ? 14 : 18,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: const Color(0xFFECE7F2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              construirTituloSeccion(
+                                titulo: 'Control de existencias',
+                                descripcion:
+                                    'Define las unidades disponibles y '
+                                    'el nivel mínimo de stock.',
+                                icono: Icons.inventory_outlined,
+                              ),
+
+                              const SizedBox(height: 23),
+
+                              // DOS COLUMNAS EN PANTALLAS ANCHAS
+                              if (esPantallaAncha)
+                                Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: construirCampoCantidad(),
+                                    ),
+                                    const SizedBox(width: 18),
+                                    Expanded(
+                                      child: construirCampoStockMinimo(),
+                                    ),
+                                  ],
+                                )
+                              else ...[
+                                construirCampoCantidad(),
+                                const SizedBox(height: 19),
+                                construirCampoStockMinimo(),
+                              ],
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // TARJETA DE PRECIO
+                        Container(
+                          width: double.infinity,
+                          padding: EdgeInsets.all(
+                            esPantallaPequena ? 14 : 18,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: const Color(0xFFECE7F2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              construirTituloSeccion(
+                                titulo: 'Información de precio',
+                                descripcion:
+                                    'Indica el precio por unidad del producto.',
+                                icono: Icons.payments_outlined,
+                              ),
+
+                              const SizedBox(height: 23),
+
+                              // PRECIO
+                              TextFormField(
+                                controller: precioController,
+                                keyboardType:
+                                    const TextInputType.numberWithOptions(
+                                  decimal: true,
+                                ),
+                                validator: validarPrecio,
+                                decoration: decoracionCampo(
+                                  etiqueta: 'Precio por unidad',
+                                  icono: Icons.attach_money_rounded,
+                                  ayuda:
+                                      'Puedes usar punto o coma decimal.',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 28),
+
+                        // BOTÓN GUARDAR
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton.icon(
+                            onPressed: guardarProducto,
+                            icon: const Icon(Icons.save_rounded),
+                            label: const Text(
+                              'GUARDAR PRODUCTO',
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 14,
                                 fontWeight: FontWeight.bold,
-                                color: InventoryScreen.moradoOscuro,
+                                letterSpacing: 0.5,
                               ),
                             ),
-                            SizedBox(height: 6),
-                            Text(
-                              'Completa los datos para agregarlo '
-                              'a tu inventario.',
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  InventoryScreen.moradoOscuro,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        // BOTÓN CANCELAR
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: TextButton.icon(
+                            onPressed: () => Navigator.pop(context),
+                            icon: const Icon(Icons.close_rounded),
+                            label: const Text(
+                              'CANCELAR',
                               style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF655574),
-                                height: 1.5,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ],
+                            style: TextButton.styleFrom(
+                              foregroundColor:
+                                  InventoryScreen.moradoOscuro,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 26),
-
-                // TARJETA DE INFORMACIÓN GENERAL
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: const Color(0xFFECE7F2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      construirTituloSeccion(
-                        titulo: 'Información general',
-                        descripcion:
-                            'Identifica el producto y selecciona '
-                            'su categoría.',
-                        icono: Icons.inventory_2_outlined,
-                      ),
-
-                      const SizedBox(height: 23),
-
-                      // NOMBRE
-                      TextFormField(
-                        controller: nombreController,
-                        textCapitalization: TextCapitalization.words,
-                        textInputAction: TextInputAction.next,
-                        validator: (valor) => validarTexto(
-                          valor,
-                          'el nombre del producto',
-                        ),
-                        decoration: decoracionCampo(
-                          etiqueta: 'Nombre del producto',
-                          icono: Icons.inventory_2_outlined,
-                        ),
-                      ),
-
-                      const SizedBox(height: 19),
-
-                      // CÓDIGO
-                      TextFormField(
-                        controller: codigoController,
-                        textCapitalization:
-                            TextCapitalization.characters,
-                        textInputAction: TextInputAction.next,
-                        validator: (valor) =>
-                            validarTexto(valor, 'el código'),
-                        decoration: decoracionCampo(
-                          etiqueta: 'Código del producto',
-                          icono: Icons.qr_code_rounded,
-                          ayuda: 'Ejemplo: ARZ001',
-                        ),
-                      ),
-
-                      const SizedBox(height: 19),
-
-                      // CATEGORÍA
-                      DropdownButtonFormField<String>(
-                        initialValue: categoriaSeleccionada,
-                        isExpanded: true,
-                        validator: (valor) {
-                          if (valor == null) {
-                            return 'Selecciona una categoría.';
-                          }
-                          return null;
-                        },
-                        decoration: decoracionCampo(
-                          etiqueta: 'Categoría',
-                          icono: Icons.category_outlined,
-                        ),
-                        items: categorias.map((categoria) {
-                          return DropdownMenuItem<String>(
-                            value: categoria,
-                            child: Text(categoria),
-                          );
-                        }).toList(),
-                        onChanged: (valor) {
-                          setState(() {
-                            categoriaSeleccionada = valor;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-
-                // TARJETA DE EXISTENCIAS
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: const Color(0xFFECE7F2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      construirTituloSeccion(
-                        titulo: 'Control de existencias',
-                        descripcion:
-                            'Define las unidades disponibles y '
-                            'el nivel mínimo de stock.',
-                        icono: Icons.inventory_outlined,
-                      ),
-
-                      const SizedBox(height: 23),
-
-                      // CANTIDAD INICIAL
-                      TextFormField(
-                        controller: cantidadController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: (valor) => validarEntero(
-                          valor,
-                          'la cantidad inicial',
-                        ),
-                        decoration: decoracionCampo(
-                          etiqueta: 'Cantidad inicial',
-                          icono: Icons.numbers_rounded,
-                          ayuda: 'Número de unidades disponibles',
-                        ),
-                      ),
-
-                      const SizedBox(height: 19),
-
-                      // STOCK MÍNIMO
-                      TextFormField(
-                        controller: stockMinimoController,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        validator: (valor) => validarEntero(
-                          valor,
-                          'el stock mínimo',
-                        ),
-                        decoration: decoracionCampo(
-                          etiqueta: 'Stock mínimo',
-                          icono: Icons.warning_amber_rounded,
-                          ayuda: 'Nivel para identificar stock bajo',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-
-                // TARJETA DE PRECIO
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    border: Border.all(
-                      color: const Color(0xFFECE7F2),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      construirTituloSeccion(
-                        titulo: 'Información de precio',
-                        descripcion:
-                            'Indica el precio por unidad del producto.',
-                        icono: Icons.payments_outlined,
-                      ),
-
-                      const SizedBox(height: 23),
-
-                      // PRECIO
-                      TextFormField(
-                        controller: precioController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        validator: validarPrecio,
-                        decoration: decoracionCampo(
-                          etiqueta: 'Precio por unidad',
-                          icono: Icons.attach_money_rounded,
-                          ayuda: 'Puedes usar punto o coma decimal.',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 28),
-
-                // BOTÓN GUARDAR
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton.icon(
-                    onPressed: guardarProducto,
-                    icon: const Icon(Icons.save_rounded),
-                    label: const Text(
-                      'GUARDAR PRODUCTO',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: InventoryScreen.moradoOscuro,
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
+                      ],
                     ),
                   ),
                 ),
-
-                const SizedBox(height: 10),
-
-                // BOTÓN CANCELAR
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close_rounded),
-                    label: const Text(
-                      'CANCELAR',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: InventoryScreen.moradoOscuro,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

@@ -1,3 +1,4 @@
+
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -56,7 +57,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _cargarProductos();
   }
 
-  // CARGAR PRODUCTOS GUARDADOS
   Future<void> _cargarProductos() async {
     try {
       final preferencias = await SharedPreferences.getInstance();
@@ -69,10 +69,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
         if (datosDecodificados is List) {
           final productosGuardados = datosDecodificados
               .whereType<Map>()
-              .map(
-                (producto) =>
-                    Map<String, dynamic>.from(producto),
-              )
+              .map((producto) => Map<String, dynamic>.from(producto))
               .toList();
 
           if (!mounted) return;
@@ -83,12 +80,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
               ..addAll(productosGuardados);
           });
         } else {
-          debugPrint(
-            'Los datos guardados no tienen el formato esperado.',
-          );
+          debugPrint('Los datos guardados no tienen el formato esperado.');
         }
       } else {
-        // Primera ejecución: guardar los productos de ejemplo.
         await _guardarProductos();
       }
     } catch (error, stackTrace) {
@@ -103,7 +97,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  // GUARDAR INVENTARIO EN EL DISPOSITIVO
   Future<void> _guardarProductos() async {
     try {
       final preferencias = await SharedPreferences.getInstance();
@@ -128,7 +121,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     super.dispose();
   }
 
-  // ICONOS SEGÚN LA CATEGORÍA
   IconData iconoCategoria(String categoria) {
     switch (categoria.trim().toLowerCase()) {
       case 'alimentos':
@@ -147,7 +139,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  // ABRIR DETALLE, EDITAR O ELIMINAR
   Future<void> abrirDetalle(
     Map<String, dynamic> producto,
   ) async {
@@ -165,7 +156,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
 
     if (!mounted || resultado == null) return;
-
     if (indiceReal >= productos.length) return;
 
     if (resultado == 'eliminar') {
@@ -202,7 +192,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  // AGREGAR PRODUCTO
   Future<void> agregarProducto() async {
     final nuevoProducto = await Navigator.push<dynamic>(
       context,
@@ -215,9 +204,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     if (nuevoProducto is Map) {
       setState(() {
-        productos.add(
-          Map<String, dynamic>.from(nuevoProducto),
-        );
+        productos.add(Map<String, dynamic>.from(nuevoProducto));
       });
 
       await _guardarProductos();
@@ -233,7 +220,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  // ETIQUETAS DE CATEGORÍA Y ESTADO
   Widget construirEtiqueta({
     required String texto,
     required Color colorFondo,
@@ -242,7 +228,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(
-        horizontal: 9,
+        horizontal: 8,
         vertical: 6,
       ),
       decoration: BoxDecoration(
@@ -253,19 +239,19 @@ class _InventoryScreenState extends State<InventoryScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icono != null) ...[
-            Icon(
-              icono,
-              size: 13,
-              color: colorTexto,
-            ),
+            Icon(icono, size: 13, color: colorTexto),
             const SizedBox(width: 4),
           ],
-          Text(
-            texto,
-            style: TextStyle(
-              color: colorTexto,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
+          Flexible(
+            child: Text(
+              texto,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              style: TextStyle(
+                color: colorTexto,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -273,7 +259,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
   }
 
-  // TARJETA VISUAL DEL PRODUCTO
   Widget construirTarjetaProducto(
     Map<String, dynamic> producto,
   ) {
@@ -289,12 +274,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     final bajoStock = cantidad <= stockMinimo;
 
-    final nombre =
-        producto['nombre']?.toString() ?? 'Sin nombre';
-    final codigo =
-        producto['codigo']?.toString() ?? 'Sin código';
-    final categoria =
-        producto['categoria']?.toString() ?? 'Otros';
+    final nombre = producto['nombre']?.toString() ?? 'Sin nombre';
+    final codigo = producto['codigo']?.toString() ?? 'Sin código';
+    final categoria = producto['categoria']?.toString() ?? 'Otros';
 
     final colorEstado = bajoStock
         ? const Color(0xFF9A6700)
@@ -307,157 +289,219 @@ class _InventoryScreenState extends State<InventoryScreen> {
     return Card(
       color: Colors.white,
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 14),
+      margin: const EdgeInsets.only(bottom: 12),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         side: const BorderSide(
           color: Color(0xFFEAE4F1),
-          width: 1,
         ),
       ),
       child: InkWell(
         onTap: () => abrirDetalle(producto),
         child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // ICONO SEGÚN LA CATEGORÍA
-              Container(
-                width: 56,
-                height: 60,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [
-                      Color(0xFFF1E8FF),
-                      Color(0xFFE4D4FA),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(
-                  iconoCategoria(categoria),
-                  color: InventoryScreen.moradoOscuro,
-                  size: 28,
-                ),
-              ),
+          padding: const EdgeInsets.all(12),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final compacto = constraints.maxWidth < 310;
+              final anchoIcono = compacto ? 44.0 : 52.0;
 
-              const SizedBox(width: 12),
-
-              // INFORMACIÓN DEL PRODUCTO
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      nombre,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF292333),
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: anchoIcono,
+                    height: anchoIcono + 4,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFFF1E8FF),
+                          Color(0xFFE4D4FA),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    const SizedBox(height: 5),
-                    Row(
+                    child: Icon(
+                      iconoCategoria(categoria),
+                      color: InventoryScreen.moradoOscuro,
+                      size: compacto ? 23 : 27,
+                    ),
+                  ),
+
+                  SizedBox(width: compacto ? 8 : 11),
+
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.qr_code_2_rounded,
-                          size: 15,
-                          color: Colors.black45,
+                        Text(
+                          nombre,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF292333),
+                          ),
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 14,
+                              color: Colors.black45,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                codigo,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 5,
+                          runSpacing: 5,
+                          children: [
+                            construirEtiqueta(
+                              texto: categoria,
+                              colorFondo: const Color(0xFFF2EDF8),
+                              colorTexto: const Color(0xFF655574),
+                            ),
+                            construirEtiqueta(
+                              texto: bajoStock ? 'Stock bajo' : 'Disponible',
+                              colorFondo: fondoEstado,
+                              colorTexto: colorEstado,
+                              icono: bajoStock
+                                  ? Icons.warning_amber_rounded
+                                  : Icons.check_circle_outline_rounded,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  SizedBox(width: compacto ? 5 : 8),
+
+                  Container(
+                    constraints: BoxConstraints(
+                      minWidth: compacto ? 48 : 56,
+                    ),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: compacto ? 4 : 6,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bajoStock
+                          ? const Color(0xFFFFF8E8)
+                          : const Color(0xFFF7F2FC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
                           child: Text(
-                            codigo,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.black54,
+                            '$cantidad',
+                            style: TextStyle(
+                              fontSize: compacto ? 18 : 21,
+                              fontWeight: FontWeight.bold,
+                              color: bajoStock
+                                  ? const Color(0xFFB77900)
+                                  : InventoryScreen.moradoOscuro,
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        construirEtiqueta(
-                          texto: categoria,
-                          colorFondo: const Color(0xFFF2EDF8),
-                          colorTexto: const Color(0xFF655574),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'unid.',
+                          style: TextStyle(
+                            fontSize: 9,
+                            color: Colors.black54,
+                          ),
                         ),
-                        construirEtiqueta(
-                          texto: bajoStock
-                              ? 'Stock bajo'
-                              : 'Disponible',
-                          colorFondo: fondoEstado,
-                          colorTexto: colorEstado,
-                          icono: bajoStock
-                              ? Icons.warning_amber_rounded
-                              : Icons.check_circle_outline_rounded,
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: Colors.grey.shade500,
+                          size: 18,
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget construirListaVacia() {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(22),
+              decoration: const BoxDecoration(
+                color: InventoryScreen.moradoClaro,
+                shape: BoxShape.circle,
               ),
-
-              const SizedBox(width: 8),
-
-              // CANTIDAD DISPONIBLE
-              Container(
-                constraints: const BoxConstraints(
-                  minWidth: 58,
-                ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: bajoStock
-                      ? const Color(0xFFFFF8E8)
-                      : const Color(0xFFF7F2FC),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      '$cantidad',
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.bold,
-                        color: bajoStock
-                            ? const Color(0xFFB77900)
-                            : InventoryScreen.moradoOscuro,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'unidades',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Colors.grey.shade500,
-                      size: 19,
-                    ),
-                  ],
+              child: const Icon(
+                Icons.inventory_2_outlined,
+                size: 48,
+                color: InventoryScreen.moradoOscuro,
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'No se encontraron productos',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF292333),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              textoBusqueda.trim().isEmpty
+                  ? 'Agrega tu primer producto al inventario.'
+                  : 'Prueba con otro nombre o código.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.black54,
+                fontSize: 14,
+              ),
+            ),
+            if (textoBusqueda.trim().isEmpty) ...[
+              const SizedBox(height: 18),
+              OutlinedButton.icon(
+                onPressed: _cargandoProductos ? null : agregarProducto,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Agregar producto'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: InventoryScreen.moradoOscuro,
                 ),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
@@ -479,8 +523,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
     return Scaffold(
       backgroundColor: InventoryScreen.fondo,
-
-      // BARRA SUPERIOR
       appBar: AppBar(
         backgroundColor: Colors.white,
         surfaceTintColor: Colors.transparent,
@@ -518,9 +560,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text(
-                    'No tienes notificaciones nuevas.',
-                  ),
+                  content: Text('No tienes notificaciones nuevas.'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -530,201 +570,195 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ],
       ),
 
-      // CONTENIDO PRINCIPAL
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // BUSCADOR
-              TextField(
-                controller: busquedaController,
-                onChanged: (texto) {
-                  setState(() {
-                    textoBusqueda = texto;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: 'Buscar por nombre o código',
-                  hintStyle: const TextStyle(
-                    color: Colors.black45,
-                    fontSize: 14,
-                  ),
-                  prefixIcon: const Icon(
-                    Icons.search_rounded,
-                    color: InventoryScreen.moradoOscuro,
-                  ),
-                  suffixIcon: textoBusqueda.isNotEmpty
-                      ? IconButton(
-                          tooltip: 'Limpiar búsqueda',
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () {
-                            busquedaController.clear();
-                            setState(() {
-                              textoBusqueda = '';
-                            });
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: Colors.white,
-                  contentPadding: const EdgeInsets.symmetric(
-                    vertical: 17,
-                    horizontal: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(17),
-                    borderSide: BorderSide.none,
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(17),
-                    borderSide: const BorderSide(
-                      color: Color(0xFFEAE5F0),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(17),
-                    borderSide: const BorderSide(
-                      color: InventoryScreen.moradoOscuro,
-                      width: 1.5,
-                    ),
-                  ),
+        child: LayoutBuilder(
+          builder: (context, screenConstraints) {
+            final ancho = screenConstraints.maxWidth;
+
+            final margenHorizontal = ancho < 360
+                ? 10.0
+                : ancho < 600
+                    ? 16.0
+                    : 24.0;
+
+            final margenSuperior = ancho < 600 ? 14.0 : 24.0;
+
+            final columnas = ancho >= 1100
+                ? 3
+                : ancho >= 720
+                    ? 2
+                    : 1;
+
+            return Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: 1200,
                 ),
-              ),
-
-              const SizedBox(height: 23),
-
-              // ENCABEZADO Y CONTADOR
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Mis productos',
-                      style: TextStyle(
-                        fontSize: 21,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF292333),
-                      ),
-                    ),
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    margenHorizontal,
+                    margenSuperior,
+                    margenHorizontal,
+                    8,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: InventoryScreen.moradoClaro,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      '${productosFiltrados.length} '
-                      '${productosFiltrados.length == 1 ? 'producto' : 'productos'}',
-                      style: const TextStyle(
-                        color: InventoryScreen.moradoOscuro,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 7),
-
-              const Text(
-                'Consulta y administra tus existencias',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 13,
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // LISTA DE PRODUCTOS
-              Expanded(
-                child: _cargandoProductos
-                    ? const Center(
-                        child: CircularProgressIndicator(
-                          color: InventoryScreen.moradoOscuro,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: busquedaController,
+                        onChanged: (texto) {
+                          setState(() {
+                            textoBusqueda = texto;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          hintText: 'Buscar por nombre o código',
+                          hintStyle: const TextStyle(
+                            color: Colors.black45,
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: InventoryScreen.moradoOscuro,
+                          ),
+                          suffixIcon: textoBusqueda.isNotEmpty
+                              ? IconButton(
+                                  tooltip: 'Limpiar búsqueda',
+                                  icon: const Icon(Icons.close_rounded),
+                                  onPressed: () {
+                                    busquedaController.clear();
+                                    setState(() {
+                                      textoBusqueda = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          filled: true,
+                          fillColor: Colors.white,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 16,
+                            horizontal: 14,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(17),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(17),
+                            borderSide: const BorderSide(
+                              color: Color(0xFFEAE5F0),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(17),
+                            borderSide: const BorderSide(
+                              color: InventoryScreen.moradoOscuro,
+                              width: 1.5,
+                            ),
+                          ),
                         ),
-                      )
-                    : productosFiltrados.isEmpty
-                        ? Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(22),
-                                    decoration: const BoxDecoration(
-                                      color: InventoryScreen.moradoClaro,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.inventory_2_outlined,
-                                      size: 48,
-                                      color: InventoryScreen.moradoOscuro,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 18),
-                                  const Text(
-                                    'No se encontraron productos',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      fontSize: 17,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF292333),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    textoBusqueda.trim().isEmpty
-                                        ? 'Agrega tu primer producto al inventario.'
-                                        : 'Prueba con otro nombre o código.',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.black54,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  if (textoBusqueda.trim().isEmpty) ...[
-                                    const SizedBox(height: 18),
-                                    OutlinedButton.icon(
-                                      onPressed: _cargandoProductos
-                                          ? null
-                                          : agregarProducto,
-                                      icon: const Icon(Icons.add_rounded),
-                                      label: const Text('Agregar producto'),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor:
-                                            InventoryScreen.moradoOscuro,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                      ),
+
+                      SizedBox(height: ancho < 600 ? 20 : 28),
+
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text(
+                              'Mis productos',
+                              style: TextStyle(
+                                fontSize: 21,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF292333),
                               ),
                             ),
-                          )
-                        : ListView.builder(
-                            padding: const EdgeInsets.only(bottom: 90),
-                            itemCount: productosFiltrados.length,
-                            itemBuilder: (context, index) {
-                              return construirTarjetaProducto(
-                                productosFiltrados[index],
-                              );
-                            },
                           ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: InventoryScreen.moradoClaro,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              '${productosFiltrados.length} '
+                              '${productosFiltrados.length == 1 ? 'producto' : 'productos'}',
+                              style: const TextStyle(
+                                color: InventoryScreen.moradoOscuro,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 7),
+
+                      const Text(
+                        'Consulta y administra tus existencias',
+                        style: TextStyle(
+                          color: Colors.black54,
+                          fontSize: 13,
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      Expanded(
+                        child: _cargandoProductos
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: InventoryScreen.moradoOscuro,
+                                ),
+                              )
+                            : productosFiltrados.isEmpty
+                                ? construirListaVacia()
+                                : columnas == 1
+                                    ? ListView.builder(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 90,
+                                        ),
+                                        itemCount:
+                                            productosFiltrados.length,
+                                        itemBuilder: (context, index) {
+                                          return construirTarjetaProducto(
+                                            productosFiltrados[index],
+                                          );
+                                        },
+                                      )
+                                    : GridView.builder(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 90,
+                                          top: 2,
+                                        ),
+                                        gridDelegate:
+                                            SliverGridDelegateWithFixedCrossAxisCount(
+                                          crossAxisCount: columnas,
+                                          crossAxisSpacing: 14,
+                                          mainAxisSpacing: 2,
+                                          mainAxisExtent: 126,
+                                        ),
+                                        itemCount:
+                                            productosFiltrados.length,
+                                        itemBuilder: (context, index) {
+                                          return construirTarjetaProducto(
+                                            productosFiltrados[index],
+                                          );
+                                        },
+                                      ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
 
-      // BOTÓN NUEVO PRODUCTO
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: InventoryScreen.moradoOscuro,
         foregroundColor: Colors.white,
