@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'inventory_screen.dart';
 import 'edit_product_screen.dart';
@@ -130,6 +132,7 @@ class ProductDetailScreen extends StatelessWidget {
                                 _IconoProducto(
                                   icono: _iconoCategoria(categoria),
                                   tamano: 110,
+                                  rutaImagen: producto['imagen']?.toString(),
                                 ),
                                 const SizedBox(width: 28),
                                 Expanded(
@@ -169,6 +172,7 @@ class ProductDetailScreen extends StatelessWidget {
                                 _IconoProducto(
                                   icono: _iconoCategoria(categoria),
                                   tamano: ancho < 360 ? 82 : 100,
+                                  rutaImagen: producto['imagen']?.toString(),
                                 ),
                                 const SizedBox(height: 20),
                                 Text(
@@ -553,18 +557,24 @@ class ProductDetailScreen extends StatelessWidget {
   }
 }
 
-// ICONO DEL PRODUCTO
+// FOTOGRAFÍA DEL PRODUCTO O ICONO DE CATEGORÍA
 class _IconoProducto extends StatelessWidget {
   final IconData icono;
   final double tamano;
+  final String? rutaImagen;
 
   const _IconoProducto({
     required this.icono,
     required this.tamano,
+    this.rutaImagen,
   });
 
   @override
   Widget build(BuildContext context) {
+    final tieneImagen = rutaImagen != null &&
+        rutaImagen!.isNotEmpty &&
+        File(rutaImagen!).existsSync();
+
     return Container(
       width: tamano,
       height: tamano,
@@ -578,6 +588,38 @@ class _IconoProducto extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(28),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(28),
+        child: tieneImagen
+            ? Image.file(
+                File(rutaImagen!),
+                width: tamano,
+                height: tamano,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _iconoPredeterminado();
+                },
+              )
+            : _iconoPredeterminado(),
+      ),
+    );
+  }
+
+  Widget _iconoPredeterminado() {
+    return Container(
+      width: tamano,
+      height: tamano,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFFF1E8FF),
+            Color(0xFFE2D1FF),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
       child: Icon(
         icono,

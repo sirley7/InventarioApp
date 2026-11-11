@@ -1,6 +1,11 @@
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:mi_inventario/database/database_helper.dart';
 import 'inventory_screen.dart';
 
 class EditProductScreen extends StatefulWidget {
@@ -35,9 +40,17 @@ class _EditProductScreenState extends State<EditProductScreen> {
     'Otros',
   ];
 
+  bool _guardando = false;
+
+  final ImagePicker _selectorImagen = ImagePicker();
+  String? imagenSeleccionada;
+  bool _seleccionandoImagen = false;
+
   @override
   void initState() {
     super.initState();
+
+    imagenSeleccionada = widget.producto['imagen']?.toString();
 
     nombreController = TextEditingController(
       text: widget.producto['nombre']?.toString() ?? '',
@@ -308,8 +321,247 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 
-  // GUARDAR CAMBIOS
-  void guardarCambios() {
+  // SELECCIONAR UNA FOTOGRAFÍA NUEVA O CONSERVAR/QUITAR LA ACTUAL
+  Future<void> seleccionarImagen(ImageSource origen) async {
+    if (_seleccionandoImagen) return;
+
+    setState(() {
+      _seleccionandoImagen = true;
+    });
+
+    try {
+      final XFile? imagen = await _selectorImagen.pickImage(
+        source: origen,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+
+      if (imagen == null) return;
+
+      final directorio = await getApplicationDocumentsDirectory();
+      final extension = p.extension(imagen.path).isNotEmpty
+          ? p.extension(imagen.path)
+          : '.jpg';
+      final nombreArchivo =
+          'producto_${DateTime.now().microsecondsSinceEpoch}$extension';
+      final rutaDestino = p.join(directorio.path, nombreArchivo);
+
+      final archivoPermanente = await File(imagen.path).copy(rutaDestino);
+
+      if (!mounted) return;
+
+      setState(() {
+        imagenSeleccionada = archivoPermanente.path;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Fotografía actualizada correctamente.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on PlatformException catch (error) {
+      debugPrint('Error al seleccionar fotografía: ${error.message}');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo acceder a la fotografía. Intenta nuevamente.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      debugPrint('Error al guardar fotografía: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo guardar la fotografía seleccionada.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _seleccionandoImagen = false;
+        });
+      }
+    }
+  }
+
+  Future<void> mostrarOpcionesFotografia() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Fotografía del producto',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF292333),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library_outlined,
+                    color: InventoryScreen.moradoOscuro,
+                  ),
+                  title: const Text('Elegir de la galería'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    seleccionarImagen(ImageSource.gallery);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.camera_alt_outlined,
+                    color: InventoryScreen.moradoOscuro,
+                  ),
+                  title: const Text('Tomar una fotografía'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    seleccionarImagen(ImageSource.camera);
+                  },
+                ),
+                if (imagenSeleccionada != null &&
+                    imagenSeleccionada!.isNotEmpty)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red,
+                    ),
+                    title: const Text('Quitar fotografía'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        imagenSeleccionada = null;
+                      });
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // VISTA PREVIA DE LA FOTOGRAFÍA
+  Widget seccionFotografia() {
+    final ruta = imagenSeleccionada;
+    final archivoExiste = ruta != null &&
+        ruta.isNotEmpty &&
+        File(ruta).existsSync();
+
+    return tarjetaSeccion(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          tituloSeccion(
+            'Fotografía del producto',
+            'Conserva la imagen actual o selecciona una nueva.',
+            Icons.photo_camera_outlined,
+          ),
+          const SizedBox(height: 18),
+          Container(
+            width: double.infinity,
+            height: 190,
+            decoration: BoxDecoration(
+              color: InventoryScreen.moradoClaro.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFE5D8F5)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: archivoExiste
+                ? Image.file(
+                    File(ruta),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Icons.broken_image_outlined,
+                          size: 58,
+                          color: InventoryScreen.moradoOscuro,
+                        ),
+                      );
+                    },
+                  )
+                : const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.add_a_photo_outlined,
+                          size: 48,
+                          color: InventoryScreen.moradoOscuro,
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          'Este producto no tiene fotografía',
+                          style: TextStyle(
+                            color: Color(0xFF777080),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _seleccionandoImagen
+                  ? null
+                  : mostrarOpcionesFotografia,
+              icon: _seleccionandoImagen
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add_a_photo_outlined),
+              label: Text(
+                _seleccionandoImagen
+                    ? 'CARGANDO...'
+                    : archivoExiste
+                        ? 'CAMBIAR FOTOGRAFÍA'
+                        : 'AGREGAR FOTOGRAFÍA',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: InventoryScreen.moradoOscuro,
+                side: const BorderSide(
+                  color: InventoryScreen.moradoOscuro,
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // GUARDAR CAMBIOS CON VALIDACIÓN DE CÓDIGO EN SQLITE
+  Future<void> guardarCambios() async {
+    if (_guardando) return;
+
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) {
@@ -325,20 +577,78 @@ class _EditProductScreenState extends State<EditProductScreen> {
       return;
     }
 
-    // Conserva los demás datos del producto original.
-    final productoActualizado = <String, dynamic>{
-      ...widget.producto,
-      'nombre': nombreController.text.trim(),
-      'codigo': codigoController.text.trim(),
-      'cantidad': int.parse(cantidadController.text.trim()),
-      'categoria': categoriaSeleccionada!,
-      'precio': double.parse(
-        precioController.text.trim().replaceAll(',', '.'),
-      ),
-      'stockMinimo': int.parse(stockMinimoController.text.trim()),
-    };
+    final codigoIngresado =
+        codigoController.text.trim().toUpperCase();
 
-    Navigator.pop(context, productoActualizado);
+    final codigoOriginal =
+        widget.producto['codigo']?.toString().trim().toUpperCase() ?? '';
+
+    setState(() {
+      _guardando = true;
+    });
+
+    try {
+      // Solo consultar SQLite si el código fue modificado.
+      if (codigoIngresado != codigoOriginal) {
+        final codigoDuplicado =
+            await DatabaseHelper.instance.codigoExiste(
+          codigoIngresado,
+        );
+
+        if (!mounted) return;
+
+        if (codigoDuplicado) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Ya existe un producto con ese código. '
+                'Ingresa un código diferente.',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          return;
+        }
+      }
+
+      if (!mounted) return;
+
+      // Conserva el ID y los demás datos originales.
+      final productoActualizado = <String, dynamic>{
+        ...widget.producto,
+        'nombre': nombreController.text.trim(),
+        'codigo': codigoIngresado,
+        'cantidad': int.parse(cantidadController.text.trim()),
+        'categoria': categoriaSeleccionada!,
+        'precio': double.parse(
+          precioController.text.trim().replaceAll(',', '.'),
+        ),
+        'stockMinimo': int.parse(stockMinimoController.text.trim()),
+        'imagen': imagenSeleccionada,
+      };
+
+      Navigator.pop(context, productoActualizado);
+    } catch (error) {
+      debugPrint('Error al validar el producto en SQLite: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No se pudieron verificar los datos. '
+            'Intenta nuevamente.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _guardando = false;
+        });
+      }
+    }
   }
 
   @override
@@ -548,6 +858,11 @@ class _EditProductScreenState extends State<EditProductScreen> {
 
                         const SizedBox(height: 18),
 
+                        // FOTOGRAFÍA DEL PRODUCTO
+                        seccionFotografia(),
+
+                        const SizedBox(height: 18),
+
                         // CONTROL DE EXISTENCIAS
                         tarjetaSeccion(
                           compacto: esPequeno,
@@ -654,11 +969,22 @@ class _EditProductScreenState extends State<EditProductScreen> {
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton.icon(
-                            onPressed: guardarCambios,
-                            icon: const Icon(Icons.save_rounded),
-                            label: const Text(
-                              'GUARDAR CAMBIOS',
-                              style: TextStyle(
+                            onPressed: _guardando ? null : guardarCambios,
+                            icon: _guardando
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_rounded),
+                            label: Text(
+                              _guardando
+                                  ? 'VERIFICANDO...'
+                                  : 'GUARDAR CAMBIOS',
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
                               ),
@@ -708,3 +1034,4 @@ class _EditProductScreenState extends State<EditProductScreen> {
     );
   }
 }
+

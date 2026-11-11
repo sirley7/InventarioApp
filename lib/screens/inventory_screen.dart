@@ -1,11 +1,11 @@
-
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'add_product_screen.dart';
 import 'product_detail_screen.dart';
+import 'login_screen.dart';
+import '../database/database_helper.dart';
+import '../services/notification_service.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({super.key});
@@ -19,37 +19,15 @@ class InventoryScreen extends StatefulWidget {
 }
 
 class _InventoryScreenState extends State<InventoryScreen> {
-  static const String _claveProductos = 'inventario_productos';
-
   String textoBusqueda = '';
   bool _cargandoProductos = true;
+  bool _primeraRevisionNotificaciones = true;
+  bool _revisandoNotificaciones = false;
 
   final TextEditingController busquedaController =
       TextEditingController();
 
-  final List<Map<String, dynamic>> productos = [
-    {
-      'nombre': 'Arroz',
-      'codigo': 'ARZ001',
-      'cantidad': 25,
-      'categoria': 'Alimentos',
-      'stockMinimo': 5,
-    },
-    {
-      'nombre': 'Café',
-      'codigo': 'CAF001',
-      'cantidad': 8,
-      'categoria': 'Bebidas',
-      'stockMinimo': 5,
-    },
-    {
-      'nombre': 'Pan',
-      'codigo': 'PAN001',
-      'cantidad': 3,
-      'categoria': 'Alimentos',
-      'stockMinimo': 5,
-    },
-  ];
+  final List<Map<String, dynamic>> productos = [];
 
   @override
   void initState() {
@@ -57,36 +35,63 @@ class _InventoryScreenState extends State<InventoryScreen> {
     _cargarProductos();
   }
 
+  // CONFIRMAR CIERRE DE SESIÓN
+  Future<void> _confirmarCerrarSesion() async {
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cerrar sesión'),
+        content: const Text(
+          '¿Estás segura de que deseas cerrar tu sesión?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: InventoryScreen.moradoOscuro,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Cerrar sesión'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmar != true || !mounted) return;
+
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  // CARGAR PRODUCTOS DESDE SQLITE
   Future<void> _cargarProductos() async {
     try {
-      final preferencias = await SharedPreferences.getInstance();
-      final datosGuardados =
-          preferencias.getString(_claveProductos);
+      final productosGuardados =
+          await DatabaseHelper.instance.obtenerProductos();
 
-      if (datosGuardados != null) {
-        final datosDecodificados = jsonDecode(datosGuardados);
+      if (!mounted) return;
 
-        if (datosDecodificados is List) {
-          final productosGuardados = datosDecodificados
-              .whereType<Map>()
-              .map((producto) => Map<String, dynamic>.from(producto))
-              .toList();
+      setState(() {
+        productos
+          ..clear()
+          ..addAll(productosGuardados);
+      });
 
-          if (!mounted) return;
-
-          setState(() {
-            productos
-              ..clear()
-              ..addAll(productosGuardados);
-          });
-        } else {
-          debugPrint('Los datos guardados no tienen el formato esperado.');
-        }
-      } else {
-        await _guardarProductos();
+      // Revisar el inventario automáticamente al entrar.
+      if (_primeraRevisionNotificaciones) {
+        _primeraRevisionNotificaciones = false;
+        await _revisarInventario(silencioso: true);
       }
     } catch (error, stackTrace) {
-      debugPrint('Error al cargar productos: $error');
+      debugPrint('Error al cargar productos desde SQLite: $error');
       debugPrintStack(stackTrace: stackTrace);
     } finally {
       if (mounted) {
@@ -97,21 +102,75 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
-  Future<void> _guardarProductos() async {
-    try {
-      final preferencias = await SharedPreferences.getInstance();
+  // REVISAR PRODUCTOS CON EXISTENCIAS BAJAS
+  Future<void> _revisarInventario({
+    bool silencioso = false,
+  }) async {
+    if (_revisandoNotificaciones) return;
 
-      final guardadoCorrecto = await preferencias.setString(
-        _claveProductos,
-        jsonEncode(productos),
+    _revisandoNotificaciones = true;
+
+    try {
+      final productosBajoStock = productos.where((producto) {
+        final cantidad = int.tryParse(
+              producto['cantidad']?.toString() ?? '',
+            ) ??
+            0;
+
+        final stockMinimo = int.tryParse(
+              producto['stockMinimo']?.toString() ?? '',
+            ) ??
+            5;
+
+        return cantidad <= stockMinimo;
+      }).toList();
+
+      if (productosBajoStock.isEmpty) {
+        if (!silencioso && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '¡Excelente! No tienes productos con stock bajo.',
+              ),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
+
+      await NotificationService.instance.revisarInventario(
+        productos,
       );
 
-      if (!guardadoCorrecto) {
-        debugPrint('No se pudo guardar el inventario.');
+      if (!silencioso && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Se encontraron ${productosBajoStock.length} '
+              '${productosBajoStock.length == 1 ? 'producto con stock bajo' : 'productos con stock bajo'}. '
+              'Revisa las notificaciones del dispositivo.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (error, stackTrace) {
-      debugPrint('Error al guardar productos: $error');
+      debugPrint('Error al revisar las notificaciones: $error');
       debugPrintStack(stackTrace: stackTrace);
+
+      if (!silencioso && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se pudieron generar las notificaciones.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      _revisandoNotificaciones = false;
     }
   }
 
@@ -142,10 +201,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
   Future<void> abrirDetalle(
     Map<String, dynamic> producto,
   ) async {
-    final indiceReal = productos.indexOf(producto);
-
-    if (indiceReal == -1) return;
-
     final resultado = await Navigator.push<dynamic>(
       context,
       MaterialPageRoute(
@@ -156,36 +211,50 @@ class _InventoryScreenState extends State<InventoryScreen> {
     );
 
     if (!mounted || resultado == null) return;
-    if (indiceReal >= productos.length) return;
 
-    if (resultado == 'eliminar') {
-      setState(() {
-        productos.removeAt(indiceReal);
-      });
+    try {
+      if (resultado == 'eliminar') {
+        final id = producto['id'] as int;
+        await DatabaseHelper.instance.eliminarProducto(id);
 
-      await _guardarProductos();
+        if (!mounted) return;
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Producto eliminado correctamente.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else if (resultado is Map) {
-      setState(() {
-        productos[indiceReal] =
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Producto eliminado correctamente.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else if (resultado is Map) {
+        final productoActualizado =
             Map<String, dynamic>.from(resultado);
-      });
 
-      await _guardarProductos();
+        productoActualizado['id'] = producto['id'];
+
+        await DatabaseHelper.instance.actualizarProducto(
+          productoActualizado,
+        );
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Producto actualizado correctamente.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+
+      await _cargarProductos();
+    } catch (error, stackTrace) {
+      debugPrint('Error al actualizar el inventario: $error');
+      debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Producto actualizado correctamente.'),
+          content: Text('No se pudo actualizar el producto.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -203,20 +272,37 @@ class _InventoryScreenState extends State<InventoryScreen> {
     if (!mounted || nuevoProducto == null) return;
 
     if (nuevoProducto is Map) {
-      setState(() {
-        productos.add(Map<String, dynamic>.from(nuevoProducto));
-      });
+      try {
+        final producto = Map<String, dynamic>.from(nuevoProducto);
 
-      await _guardarProductos();
+        producto.remove('id');
 
-      if (!mounted) return;
+        await DatabaseHelper.instance.insertarProducto(producto);
+        await _cargarProductos();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Producto guardado correctamente.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Producto guardado correctamente.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } catch (error, stackTrace) {
+        debugPrint('Error al guardar el producto en SQLite: $error');
+        debugPrintStack(stackTrace: stackTrace);
+
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No se pudo guardar. Verifica que el código no exista.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -323,15 +409,13 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ),
                       borderRadius: BorderRadius.circular(14),
                     ),
-                    child: Icon(
-                      iconoCategoria(categoria),
-                      color: InventoryScreen.moradoOscuro,
-                      size: compacto ? 23 : 27,
+                    child: _ImagenProductoInventario(
+                      rutaImagen: producto['imagen']?.toString(),
+                      icono: iconoCategoria(categoria),
+                      tamanoIcono: compacto ? 23 : 27,
                     ),
                   ),
-
                   SizedBox(width: compacto ? 8 : 11),
-
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,9 +476,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       ],
                     ),
                   ),
-
                   SizedBox(width: compacto ? 5 : 8),
-
                   Container(
                     constraints: BoxConstraints(
                       minWidth: compacto ? 48 : 56,
@@ -552,24 +634,55 @@ class _InventoryScreenState extends State<InventoryScreen> {
         ),
         actions: [
           IconButton(
-            tooltip: 'Notificaciones',
+            tooltip: 'Revisar notificaciones',
+            icon: _revisandoNotificaciones
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: InventoryScreen.moradoOscuro,
+                    ),
+                  )
+                : const Icon(
+                    Icons.notifications_none_rounded,
+                    color: InventoryScreen.moradoOscuro,
+                  ),
+            onPressed: _revisandoNotificaciones
+                ? null
+                : () => _revisarInventario(),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Opciones de cuenta',
             icon: const Icon(
-              Icons.notifications_none_rounded,
+              Icons.account_circle_outlined,
               color: InventoryScreen.moradoOscuro,
+              size: 27,
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('No tienes notificaciones nuevas.'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+            onSelected: (opcion) {
+              if (opcion == 'cerrar_sesion') {
+                _confirmarCerrarSesion();
+              }
             },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'cerrar_sesion',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.logout_rounded,
+                      color: Colors.red,
+                    ),
+                    SizedBox(width: 10),
+                    Text('Cerrar sesión'),
+                  ],
+                ),
+              ),
+            ],
           ),
           const SizedBox(width: 6),
         ],
       ),
-
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, screenConstraints) {
@@ -658,9 +771,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                         ),
                       ),
-
                       SizedBox(height: ancho < 600 ? 20 : 28),
-
                       Row(
                         children: [
                           const Expanded(
@@ -694,9 +805,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           ),
                         ],
                       ),
-
                       const SizedBox(height: 7),
-
                       const Text(
                         'Consulta y administra tus existencias',
                         style: TextStyle(
@@ -704,9 +813,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           fontSize: 13,
                         ),
                       ),
-
                       const SizedBox(height: 16),
-
                       Expanded(
                         child: _cargandoProductos
                             ? const Center(
@@ -758,7 +865,6 @@ class _InventoryScreenState extends State<InventoryScreen> {
           },
         ),
       ),
-
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: InventoryScreen.moradoOscuro,
         foregroundColor: Colors.white,
@@ -774,6 +880,51 @@ class _InventoryScreenState extends State<InventoryScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+      ),
+    );
+  }
+}
+
+// IMAGEN DEL PRODUCTO EN LA TARJETA DEL INVENTARIO
+class _ImagenProductoInventario extends StatelessWidget {
+  final String? rutaImagen;
+  final IconData icono;
+  final double tamanoIcono;
+
+  const _ImagenProductoInventario({
+    required this.rutaImagen,
+    required this.icono,
+    required this.tamanoIcono,
+  });
+
+  Widget _construirIcono() {
+    return Icon(
+      icono,
+      color: InventoryScreen.moradoOscuro,
+      size: tamanoIcono,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ruta = rutaImagen?.trim() ?? '';
+    final tieneImagen =
+        ruta.isNotEmpty && File(ruta).existsSync();
+
+    if (!tieneImagen) {
+      return _construirIcono();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.file(
+        File(ruta),
+        width: double.infinity,
+        height: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) {
+          return _construirIcono();
+        },
       ),
     );
   }

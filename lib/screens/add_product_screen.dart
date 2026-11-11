@@ -1,10 +1,12 @@
-
-import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:mi_inventario/screens/inventory_screen.dart';
+import 'package:mi_inventario/database/database_helper.dart';
 
 class AddProductScreen extends StatefulWidget {
   const AddProductScreen({super.key});
@@ -22,7 +24,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final precioController = TextEditingController();
   final stockMinimoController = TextEditingController();
 
+  final ImagePicker _imagePicker = ImagePicker();
+
   String? categoriaSeleccionada;
+  String? imagenSeleccionada;
+  bool _guardando = false;
+  bool _seleccionandoImagen = false;
 
   final List<String> categorias = [
     'Alimentos',
@@ -203,6 +210,298 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
+  // COPIAR LA IMAGEN A UNA CARPETA PERMANENTE DE LA APLICACIÓN
+  Future<String> guardarImagenPermanentemente(XFile imagen) async {
+    final directorio = await getApplicationDocumentsDirectory();
+
+    final extension = p.extension(imagen.path).isNotEmpty
+        ? p.extension(imagen.path)
+        : '.jpg';
+
+    final nombreArchivo =
+        'producto_${DateTime.now().microsecondsSinceEpoch}$extension';
+
+    final rutaDestino = p.join(
+      directorio.path,
+      nombreArchivo,
+    );
+
+    final archivoPermanente = await File(imagen.path).copy(
+      rutaDestino,
+    );
+
+    return archivoPermanente.path;
+  }
+
+  // MOSTRAR OPCIONES PARA SELECCIONAR UNA FOTOGRAFÍA
+  Future<void> mostrarOpcionesImagen() async {
+    if (_seleccionandoImagen || _guardando) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(22),
+        ),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Seleccionar fotografía',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF292333),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ListTile(
+                  leading: const Icon(
+                    Icons.camera_alt_rounded,
+                    color: InventoryScreen.moradoOscuro,
+                  ),
+                  title: const Text('Tomar fotografía'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    seleccionarImagen(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library_rounded,
+                    color: InventoryScreen.moradoOscuro,
+                  ),
+                  title: const Text('Elegir de la galería'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    seleccionarImagen(ImageSource.gallery);
+                  },
+                ),
+                if (imagenSeleccionada != null)
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.red,
+                    ),
+                    title: const Text(
+                      'Quitar fotografía',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() {
+                        imagenSeleccionada = null;
+                      });
+                    },
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // SELECCIONAR IMAGEN Y GUARDARLA PERMANENTEMENTE
+  Future<void> seleccionarImagen(ImageSource origen) async {
+    if (_seleccionandoImagen || _guardando) return;
+
+    setState(() {
+      _seleccionandoImagen = true;
+    });
+
+    try {
+      final XFile? imagen = await _imagePicker.pickImage(
+        source: origen,
+        imageQuality: 80,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+
+      if (!mounted) return;
+
+      if (imagen != null) {
+        // Copiar la fotografía desde la ubicación temporal
+        // hasta el almacenamiento privado de InventarioApp.
+        final rutaPermanente =
+            await guardarImagenPermanentemente(imagen);
+
+        if (!mounted) return;
+
+        setState(() {
+          imagenSeleccionada = rutaPermanente;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Fotografía guardada correctamente en el dispositivo.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on PlatformException catch (error) {
+      debugPrint('Error de permisos o selección de imagen: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No fue posible acceder a la cámara o galería. '
+            'Verifica los permisos del dispositivo.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (error) {
+      debugPrint('Error al guardar fotografía: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No fue posible guardar la fotografía. Intenta nuevamente.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _seleccionandoImagen = false;
+        });
+      }
+    }
+  }
+
+  // SECCIÓN PARA AGREGAR Y VISUALIZAR LA FOTOGRAFÍA
+  Widget construirSeccionImagen() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: const Color(0xFFECE7F2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          construirTituloSeccion(
+            titulo: 'Fotografía del producto',
+            descripcion:
+                'Agrega una imagen desde la cámara o la galería.',
+            icono: Icons.photo_camera_outlined,
+          ),
+          const SizedBox(height: 20),
+          if (imagenSeleccionada != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.file(
+                File(imagenSeleccionada!),
+                width: double.infinity,
+                height: 210,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    height: 160,
+                    color: InventoryScreen.moradoClaro,
+                    alignment: Alignment.center,
+                    child: const Text(
+                      'No se pudo mostrar la fotografía.',
+                      style: TextStyle(
+                        color: InventoryScreen.moradoOscuro,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              height: 155,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F6FB),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: const Color(0xFFE8E1EF),
+                ),
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_a_photo_outlined,
+                    size: 42,
+                    color: InventoryScreen.moradoOscuro,
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    'No has agregado una fotografía',
+                    style: TextStyle(
+                      color: Color(0xFF777080),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: _seleccionandoImagen || _guardando
+                  ? null
+                  : mostrarOpcionesImagen,
+              icon: _seleccionandoImagen
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(
+                _seleccionandoImagen
+                    ? 'SELECCIONANDO...'
+                    : imagenSeleccionada == null
+                        ? 'AGREGAR FOTOGRAFÍA'
+                        : 'CAMBIAR FOTOGRAFÍA',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: InventoryScreen.moradoOscuro,
+                side: const BorderSide(
+                  color: Color(0xFFD8C5EF),
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // CAMPO DE CANTIDAD
   Widget construirCampoCantidad() {
     return TextFormField(
@@ -243,8 +542,10 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
-  // GUARDAR PRODUCTO CON VALIDACIÓN DE CÓDIGO DUPLICADO
+  // GUARDAR PRODUCTO CON VALIDACIÓN DE CÓDIGO DUPLICADO EN SQLITE
   Future<void> guardarProducto() async {
+    if (_guardando) return;
+
     FocusScope.of(context).unfocus();
 
     if (!_formKey.currentState!.validate()) {
@@ -260,81 +561,67 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
+    setState(() {
+      _guardando = true;
+    });
+
     final codigoIngresado =
         codigoController.text.trim().toUpperCase();
 
     try {
-      final preferencias = await SharedPreferences.getInstance();
+      final codigoDuplicado =
+          await DatabaseHelper.instance.codigoExiste(
+        codigoIngresado,
+      );
 
-      final datosGuardados =
-          preferencias.getString('inventario_productos');
+      if (!mounted) return;
 
-      if (datosGuardados != null) {
-        final datosDecodificados = jsonDecode(datosGuardados);
-
-        if (datosDecodificados is List) {
-          final codigoDuplicado =
-              datosDecodificados.any((elemento) {
-            if (elemento is! Map) {
-              return false;
-            }
-
-            final codigoExistente = elemento['codigo']
-                    ?.toString()
-                    .trim()
-                    .toUpperCase() ??
-                '';
-
-            return codigoExistente == codigoIngresado;
-          });
-
-          if (codigoDuplicado) {
-            if (!mounted) return;
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Ya existe un producto con ese código. '
-                  'Ingresa un código diferente.',
-                ),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-            return;
-          }
-        }
+      if (codigoDuplicado) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Ya existe un producto con ese código. '
+              'Ingresa un código diferente.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
       }
+
+      final producto = <String, dynamic>{
+        'nombre': nombreController.text.trim(),
+        'codigo': codigoIngresado,
+        'cantidad': int.parse(cantidadController.text.trim()),
+        'categoria': categoriaSeleccionada!,
+        'precio': double.parse(
+          precioController.text.trim().replaceAll(',', '.'),
+        ),
+        'stockMinimo': int.parse(stockMinimoController.text.trim()),
+        'imagen': imagenSeleccionada,
+      };
+
+      Navigator.pop(context, producto);
     } catch (error) {
-      debugPrint('Error al verificar el código: $error');
+      debugPrint('Error al guardar producto: $error');
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'No se pudo verificar el código. '
-            'Intenta nuevamente.',
+            'No se pudo guardar el producto. Intenta nuevamente.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
       );
-      return;
+    } finally {
+      if (mounted) {
+        setState(() {
+          _guardando = false;
+        });
+      }
     }
-
-    if (!mounted) return;
-
-    final producto = <String, dynamic>{
-      'nombre': nombreController.text.trim(),
-      'codigo': codigoController.text.trim(),
-      'cantidad': int.parse(cantidadController.text.trim()),
-      'categoria': categoriaSeleccionada!,
-      'precio': double.parse(
-        precioController.text.trim().replaceAll(',', '.'),
-      ),
-      'stockMinimo': int.parse(stockMinimoController.text.trim()),
-    };
-
-    Navigator.pop(context, producto);
   }
 
   @override
@@ -586,7 +873,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
                               const SizedBox(height: 23),
 
-                              // DOS COLUMNAS EN PANTALLAS ANCHAS
                               if (esPantallaAncha)
                                 Row(
                                   crossAxisAlignment:
@@ -637,7 +923,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
                               const SizedBox(height: 23),
 
-                              // PRECIO
                               TextFormField(
                                 controller: precioController,
                                 keyboardType:
@@ -656,6 +941,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           ),
                         ),
 
+                        const SizedBox(height: 18),
+
+                        // SECCIÓN DE FOTOGRAFÍA
+                        construirSeccionImagen(),
+
                         const SizedBox(height: 28),
 
                         // BOTÓN GUARDAR
@@ -663,11 +953,24 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           width: double.infinity,
                           height: 56,
                           child: ElevatedButton.icon(
-                            onPressed: guardarProducto,
-                            icon: const Icon(Icons.save_rounded),
-                            label: const Text(
-                              'GUARDAR PRODUCTO',
-                              style: TextStyle(
+                            onPressed: _guardando || _seleccionandoImagen
+                                ? null
+                                : guardarProducto,
+                            icon: _guardando
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.save_rounded),
+                            label: Text(
+                              _guardando
+                                  ? 'GUARDANDO...'
+                                  : 'GUARDAR PRODUCTO',
+                              style: const TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
@@ -692,7 +995,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
                           width: double.infinity,
                           height: 50,
                           child: TextButton.icon(
-                            onPressed: () => Navigator.pop(context),
+                            onPressed: _guardando
+                                ? null
+                                : () => Navigator.pop(context),
                             icon: const Icon(Icons.close_rounded),
                             label: const Text(
                               'CANCELAR',
@@ -718,3 +1023,4 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 }
+
