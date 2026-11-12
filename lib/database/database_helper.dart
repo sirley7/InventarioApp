@@ -153,15 +153,6 @@ class DatabaseHelper {
           'stockMinimo': 5,
           'imagen': null,
         },
-        {
-          'nombre': 'Pan',
-          'codigo': 'PAN001',
-          'cantidad': 3,
-          'categoria': 'Alimentos',
-          'precio': 0.0,
-          'stockMinimo': 5,
-          'imagen': null,
-        },
       ];
 
       for (final producto in productosIniciales) {
