@@ -88,6 +88,7 @@ class DatabaseHelper {
   }
 
   // CARGAR PRODUCTOS EXISTENTES.
+  // No crear productos predeterminados.
   Future<void> _cargarDatosIniciales(Database db) async {
     final resultado = await db.rawQuery(
       'SELECT COUNT(*) AS total FROM productos',
@@ -95,70 +96,47 @@ class DatabaseHelper {
 
     final total = resultado.first['total'] as int;
 
+    // Si SQLite ya tiene productos, conservarlos.
     if (total > 0) return;
 
+    // Recuperar productos anteriores de SharedPreferences,
+    // únicamente si existen datos guardados de versiones anteriores.
     final preferencias = await SharedPreferences.getInstance();
 
     final datosGuardados =
         preferencias.getString('inventario_productos');
 
-    if (datosGuardados != null) {
-      try {
-        final List<dynamic> productos = jsonDecode(datosGuardados);
-
-        if (productos.isNotEmpty) {
-          await db.transaction((txn) async {
-            for (final producto in productos) {
-              await txn.insert(
-                'productos',
-                {
-                  'nombre': producto['nombre'],
-                  'codigo': producto['codigo'],
-                  'cantidad': producto['cantidad'],
-                  'categoria': producto['categoria'],
-                  'precio': producto['precio'] ?? 0,
-                  'stockMinimo': producto['stockMinimo'] ?? 5,
-                  'imagen': producto['imagen'],
-                },
-                conflictAlgorithm: ConflictAlgorithm.ignore,
-              );
-            }
-          });
-
-          return;
-        }
-      } catch (e) {
-        // Si no se pueden recuperar los datos anteriores,
-        // se cargarán los productos iniciales.
-      }
+    // Si no existen datos anteriores, el inventario queda vacío.
+    if (datosGuardados == null || datosGuardados.isEmpty) {
+      return;
     }
 
-    await db.transaction((txn) async {
-      final productosIniciales = [
-        {
-          'nombre': 'Arroz',
-          'codigo': 'ARZ001',
-          'cantidad': 25,
-          'categoria': 'Alimentos',
-          'precio': 0.0,
-          'stockMinimo': 5,
-          'imagen': null,
-        },
-        {
-          'nombre': 'Café',
-          'codigo': 'CAF001',
-          'cantidad': 8,
-          'categoria': 'Bebidas',
-          'precio': 0.0,
-          'stockMinimo': 5,
-          'imagen': null,
-        },
-      ];
+    try {
+      final List<dynamic> productos = jsonDecode(datosGuardados);
 
-      for (final producto in productosIniciales) {
-        await txn.insert('productos', producto);
-      }
-    });
+      if (productos.isEmpty) return;
+
+      await db.transaction((txn) async {
+        for (final producto in productos) {
+          await txn.insert(
+            'productos',
+            {
+              'nombre': producto['nombre'],
+              'codigo': producto['codigo'],
+              'cantidad': producto['cantidad'],
+              'categoria': producto['categoria'],
+              'precio': producto['precio'] ?? 0,
+              'stockMinimo': producto['stockMinimo'] ?? 5,
+              'imagen': producto['imagen'],
+            },
+            conflictAlgorithm: ConflictAlgorithm.ignore,
+          );
+        }
+      });
+    } catch (e) {
+      // Si no existen datos anteriores válidos,
+      // el inventario permanecerá vacío.
+    }
   }
 
   // =====================================================

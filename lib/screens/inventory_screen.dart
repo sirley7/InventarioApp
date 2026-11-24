@@ -198,6 +198,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  // ABRIR DETALLE, ACTUALIZAR O ELIMINAR PRODUCTO
   Future<void> abrirDetalle(
     Map<String, dynamic> producto,
   ) async {
@@ -245,7 +246,21 @@ class _InventoryScreenState extends State<InventoryScreen> {
         );
       }
 
+      // Recargar los productos directamente desde SQLite.
       await _cargarProductos();
+
+      // CORRECCIÓN: revisar directamente el servicio después de editar.
+      // Esto evita que la revisión sea descartada por el bloqueo
+      // de _revisarInventario cuando otra revisión está en curso.
+      if (resultado is Map) {
+        await NotificationService.instance.revisarInventario(
+          List<Map<String, dynamic>>.from(productos),
+        );
+
+        debugPrint(
+          'Revisión de notificaciones ejecutada después de editar.',
+        );
+      }
     } catch (error, stackTrace) {
       debugPrint('Error al actualizar el inventario: $error');
       debugPrintStack(stackTrace: stackTrace);
@@ -261,6 +276,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
     }
   }
 
+  // AGREGAR PRODUCTO
   Future<void> agregarProducto() async {
     final nuevoProducto = await Navigator.push<dynamic>(
       context,
@@ -279,6 +295,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
         await DatabaseHelper.instance.insertarProducto(producto);
         await _cargarProductos();
+
+        // Revisar inmediatamente si el producto tiene stock bajo.
+        await _revisarInventario();
 
         if (!mounted) return;
 

@@ -16,6 +16,7 @@ class NotificationService {
   static const String _canalId = 'canal_stock_bajo';
   static const String _canalNombre = 'Alertas de inventario';
 
+  // Inicialización del servicio.
   Future<void> inicializar() async {
     if (_inicializado) return;
 
@@ -34,6 +35,7 @@ class NotificationService {
     _inicializado = true;
   }
 
+  // Solicitar permiso para mostrar notificaciones.
   Future<bool> solicitarPermisos() async {
     await inicializar();
 
@@ -49,6 +51,20 @@ class NotificationService {
     return permisoConcedido ?? false;
   }
 
+  // Comprobar si Android permite mostrar notificaciones.
+  Future<bool> verificarPermisos() async {
+    await inicializar();
+
+    final androidPlugin = _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin == null) return false;
+
+    return await androidPlugin.areNotificationsEnabled() ?? false;
+  }
+
+  // Configuración visual de las notificaciones.
   AndroidNotificationDetails _configuracionNotificacion({
     required String textoExpandido,
   }) {
@@ -60,14 +76,8 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       playSound: true,
-
-      // Icono pequeño blanco para Android.
       icon: _iconoNotificacion,
-
-      // Color morado de la aplicación.
       color: const Color(0xFF6A1B9A),
-
-      // Mensaje ampliado.
       styleInformation: BigTextStyleInformation(
         textoExpandido,
         contentTitle: 'Productos con stock bajo',
@@ -76,12 +86,18 @@ class NotificationService {
     );
   }
 
+  // Mostrar notificación individual de stock bajo.
   Future<void> mostrarNotificacionStockBajo({
     required String nombreProducto,
     required int cantidad,
     required int stockMinimo,
   }) async {
     await inicializar();
+
+    if (!await verificarPermisos()) {
+      debugPrint('Permiso de notificaciones no concedido.');
+      return;
+    }
 
     final detalle =
         'Revisa: $nombreProducto. '
@@ -101,10 +117,16 @@ class NotificationService {
     );
   }
 
+  // Revisar todos los productos del inventario.
   Future<void> revisarInventario(
     List<Map<String, dynamic>> productos,
   ) async {
     await inicializar();
+
+    if (!await verificarPermisos()) {
+      debugPrint('No se pueden mostrar alertas: permiso denegado.');
+      return;
+    }
 
     final productosBajoStock = productos.where((producto) {
       final cantidad = int.tryParse(
@@ -120,7 +142,10 @@ class NotificationService {
       return cantidad <= stockMinimo;
     }).toList();
 
-    if (productosBajoStock.isEmpty) return;
+    if (productosBajoStock.isEmpty) {
+      debugPrint('No hay productos con stock bajo.');
+      return;
+    }
 
     final detalles = productosBajoStock.map((producto) {
       final nombre = producto['nombre']?.toString() ?? 'Producto';
@@ -172,5 +197,39 @@ class NotificationService {
       body: mensaje,
       notificationDetails: notificationDetails,
     );
+
+    debugPrint(
+      'Notificación enviada. Productos con stock bajo: '
+      '${productosBajoStock.length}',
+    );
+  }
+
+  // Notificación de prueba para verificar Android.
+  Future<void> probarNotificacion() async {
+    await inicializar();
+
+    final permiso = await verificarPermisos();
+
+    debugPrint('Permiso de notificaciones: $permiso');
+
+    if (!permiso) {
+      debugPrint('Las notificaciones no están autorizadas.');
+      return;
+    }
+
+    await _notifications.show(
+      id: 9999,
+      title: 'Prueba de InventarioApp',
+      body: 'Las notificaciones están funcionando correctamente.',
+      notificationDetails: NotificationDetails(
+        android: _configuracionNotificacion(
+          textoExpandido:
+              'Prueba de notificaciones de InventarioApp.',
+        ),
+      ),
+    );
+
+    debugPrint('Notificación de prueba enviada.');
   }
 }
+

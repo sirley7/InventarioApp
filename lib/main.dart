@@ -13,6 +13,8 @@ Future<void> main() async {
     debugPrint('Error al inicializar las notificaciones: $error');
   }
 
+  await NotificationService.instance.probarNotificacion();
+
   runApp(const InventarioApp());
 }
 
